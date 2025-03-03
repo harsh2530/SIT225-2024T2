@@ -1,0 +1,105 @@
+// Arduino Code:
+#include <Arduino_LSM6DS3.h>
+
+float x, y, z;
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+
+  if (!IMU.begin()) {
+    Serial.println("Failed to initialize IMU!");
+    while (1);
+  }
+}
+
+void loop() {
+  if (IMU.gyroscopeAvailable()) {
+    IMU.readGyroscope(x, y, z);
+    
+    // Print data in CSV format (x,y,z)
+    Serial.print(x);
+    Serial.print(",");
+    Serial.print(y);
+    Serial.print(",");
+    Serial.println(z);
+  }
+}
+//*************************************************************//
+
+//Python code to collect readings for 30 mins:
+import serial
+import time
+import firebase_admin
+from firebase_admin import credentials, db
+
+cred = credentials.Certificate(r"D:\\week5activity\\gyroscope_firebase.json")  
+firebase_admin.initialize_app(cred, {"databaseURL": "https://mydatabaseproject-4d44e-default-rtdb.firebaseio.com/"})  
+
+
+ref = db.reference("gyroscope_data")
+
+ser = serial.Serial("COM10", 9600, timeout=1)  
+time.sleep(2)  
+
+csv_file_path = "D:\\week5activity\\gyroscope_data.csv"
+with open(csv_file_path, "w") as file:
+    file.write("timestamp,x,y,z\n")  
+
+
+start_time = time.time()
+duration = 1800  
+
+while time.time() - start_time < duration:
+    try:
+        line = ser.readline().decode("utf-8").strip() 
+        if line:
+            values = line.split(",") 
+
+            if len(values) == 3: 
+                x, y, z = map(float, values)  
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")  
+
+                data = {"timestamp": timestamp, "x": x, "y": y, "z": z}
+
+                ref.push(data)
+
+                with open(csv_file_path, "a") as file:
+                    file.write(f"{timestamp},{x},{y},{z}\n")
+
+                print(f"{timestamp}, {x}, {y}, {z}")
+
+    except Exception as e:
+        print("Error:", e)
+
+ser.close()
+print(f" Data collection complete! CSV saved at: {csv_file_path}")
+//*****************************************************************************************************//
+
+//Python code to plot a graph using readings:
+import pandas as pd
+import matplotlib.pyplot as plt
+
+csv_file_path = "D:\\week5activity\\gyroscope_data.csv"
+
+df = pd.read_csv(csv_file_path)
+
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+# Plot the data
+plt.figure(figsize=(12, 6))
+plt.plot(df["timestamp"], df["x"], label="X-Axis", color="blue")
+plt.plot(df["timestamp"], df["y"], label="Y-Axis", color="orange")
+plt.plot(df["timestamp"], df["z"], label="Z-Axis", color="green")
+
+# Formatting the plot
+plt.xlabel("Time")
+plt.ylabel("Gyroscope Readings")
+plt.title("Gyroscope Sensor Data Over 30 Minutes")
+plt.legend()
+plt.xticks(rotation=45)  # Rotate x-axis labels for better readability
+plt.grid(True)
+
+# Show the plot
+plt.show()
+//*************************************************************************************//
