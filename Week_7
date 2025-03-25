@@ -1,0 +1,195 @@
+// Python Program to collect readings from DHT22 Sensor//
+import serial
+import csv
+import time
+
+ser = serial.Serial('COM10', 9600)  
+
+csv_file = open("harshi.csv", mode="w", newline="")
+writer = csv.writer(csv_file)
+writer.writerow(["Temperature (°C)", "Humidity (%)"])  
+
+start_time = time.time()  
+duration = 30 * 60  
+
+try:
+    while time.time() - start_time < duration:
+        data = ser.readline().decode().strip()
+        if "Temperature" in data and "Humidity" in data:
+            values = data.replace("Temperature: ", "").replace("°C, Humidity: ", "").replace(" %", "").split(",")
+            writer.writerow(values)
+            print(data)
+except KeyboardInterrupt:
+    print("Data collection stopped manually.")
+finally:
+    csv_file.close()
+    ser.close()
+    print("CSV file saved and serial connection closed.")
+
+//***********************************************************************************************************************//
+
+//Arduino Code to collect Readings//
+#include <DHT.h>
+
+#define DHTPIN 2  
+#define DHTTYPE DHT22  
+
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+    Serial.begin(9600);
+    dht.begin();
+}
+
+void loop() {
+    float temp = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    
+    if (!isnan(temp) && !isnan(humidity)) {
+        Serial.print("Temperature: ");
+        Serial.print(temp);
+        Serial.print(" °C, Humidity: ");
+        Serial.print(humidity);
+        Serial.println(" %");
+    }
+    delay(2000);
+}
+
+//****************************************************************************************************//
+
+// The codes to get the outputs of graphs using different csv files so that it can be compared after the results//
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+import pandas as pd
+
+df = pd.read_csv("harsh.csv")  
+df.columns = df.columns.str.strip()  
+
+correct_column_name = "Temperature (°C)"
+humidity_column_name = "Humidity (%)"
+
+min_temp_threshold = df[correct_column_name].quantile(0.05)
+max_temp_threshold = df[correct_column_name].quantile(0.95)
+df_filtered = df[(df[correct_column_name] >= min_temp_threshold) & (df[correct_column_name] <= max_temp_threshold)]
+
+X = df_filtered[correct_column_name].values.reshape(-1, 1)  
+y = df_filtered[humidity_column_name].values  
+
+model = LinearRegression()
+model.fit(X, y)
+
+test_temps = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+predicted_humidity = model.predict(test_temps)
+
+plt.scatter(X, y, color='blue', label="Filtered Data")  
+plt.plot(test_temps, predicted_humidity, color='red', label="Trend Line") 
+plt.xlabel("Temperature (°C)")
+plt.ylabel("Humidity (%)")
+plt.title("Temperature vs Humidity (Filtered Data)")
+plt.legend()
+plt.show()
+
+//*************************************************//
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+
+data = np.loadtxt("harsh.csv", delimiter=",", skiprows=1)  
+X = data[:, 0].reshape(-1, 1)  
+y = data[:, 1]  
+
+# Train linear regression model
+model = LinearRegression()
+model.fit(X, y)
+
+test_temps = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+predicted_humidity = model.predict(test_temps)
+
+# Plot actual data and trend line
+plt.scatter(X, y, color='blue', label="Actual Data")  # Scatter plot
+plt.plot(test_temps, predicted_humidity, color='red', label="Trend Line")  # Line plot
+plt.xlabel("Temperature (°C)")
+plt.ylabel("Humidity (%)")
+plt.title("Temperature vs Humidity (Trend Analysis)")
+plt.legend()
+plt.show()
+
+//********************************************************//
+import pandas as pd
+
+df = pd.read_csv("harsh.csv")  
+
+df.columns = df.columns.str.strip()
+
+print(df.columns)
+
+correct_column_name = "Temperature (°C)"  
+
+min_temp_threshold = df[correct_column_name].quantile(0.05)
+max_temp_threshold = df[correct_column_name].quantile(0.95)
+
+df_filtered = df[(df[correct_column_name] >= min_temp_threshold) & (df[correct_column_name] <= max_temp_threshold)]
+print(df_filtered.head()) 
+
+//****************************************************//
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+
+df = pd.read_csv("harsh.csv", encoding="utf-8")
+
+X = df[["Temperature (°C)"]]  
+y = df["Humidity (%)"]  
+
+model = LinearRegression()
+model.fit(X, y)
+
+print(f"Intercept: {model.intercept_}")
+print(f"Coefficient: {model.coef_[0]}")
+
+plt.scatter(X, y, color="blue", label="Actual Data")
+
+X_range = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+y_pred = model.predict(X_range)
+
+plt.plot(X_range, y_pred, color="red", label="Regression Line")
+plt.xlabel("Temperature (°C)")
+plt.ylabel("Humidity (%)")
+plt.legend()
+plt.title("Temperature vs Humidity (Linear Regression)")
+plt.show()
+
+//*****************************************************************//
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+
+df = pd.read_csv("D:\\week7Activity\\harsh.csv")  
+
+X = df.iloc[:, 0].values  
+y = df.iloc[:, 1].values  
+
+X = X.reshape(-1, 1)
+
+model = LinearRegression()
+model.fit(X, y)
+
+min_temp = X.min()
+max_temp = X.max()
+
+test_temps = np.linspace(min_temp, max_temp, 100).reshape(-1, 1)
+
+predicted_humidity = model.predict(test_temps)
+
+plt.scatter(X, y, color='blue', label="Actual Data")  
+plt.plot(test_temps, predicted_humidity, color='red', label="Predicted Line") 
+plt.xlabel("Temperature (°C)")
+plt.ylabel("Humidity (%)")
+plt.title("Temperature vs Humidity (Predictions)")
+plt.legend()
+plt.show()
+//*****************************************************************************//
+//Here is end of all the codes which are used to get outputs using two different csv files.//
